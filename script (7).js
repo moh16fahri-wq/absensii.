@@ -1,55 +1,26 @@
-// ========== APLIKASI SEKOLAH DIGITAL - TANPA DATABASE (LOCALSTORAGE) ==========
+// ========== APLIKASI SEKOLAH DIGITAL - LENGKAP & TERHUBUNG DATABASE ==========
 
 let data;
 let currentUser = null;
 let currentRole = null;
 let absensiHariIniSelesai = false;
 
-// DATA DEFAULT (SAMPLE DATA)
-const defaultData = {
-    users: {
-        admins: [
-            { id: 1, username: 'admin', password: 'admin123' }
-        ],
-        gurus: [
-            { id: 1, nama: 'Budi Santoso', email: 'budi@gmail.com', password: 'guru123', jadwal: [] },
-            { id: 2, nama: 'Siti Rahayu', email: 'siti@gmail.com', password: 'guru123', jadwal: [] }
-        ],
-        siswas: [
-            { id: 1, nama: 'Ahmad Rizki', nis: '2023001', id_kelas: 1, email: '', password: 'siswa123' },
-            { id: 2, nama: 'Siti Nurhaliza', nis: '2023002', id_kelas: 1, email: '', password: 'siswa123' },
-            { id: 3, nama: 'Budi Setiawan', nis: '2023003', id_kelas: 2, email: '', password: 'siswa123' }
-        ]
-    },
-    kelas: [
-        { id: 1, nama: 'X IPA 1', lokasi: { latitude: -7.257472, longitude: 112.752090 } },
-        { id: 2, nama: 'X IPA 2', lokasi: { latitude: -7.257472, longitude: 112.752090 } },
-        { id: 3, nama: 'XI IPA 1', lokasi: { latitude: -7.257472, longitude: 112.752090 } }
-    ],
-    pengumuman: [],
-    tugas: [],
-    absensi: [],
-    materi: [],
-    notifikasi: [],
-    jurnal: [],
-    jadwalPelajaran: {},
-    catatanPR: [],
-    diskusi: []
-};
-
-// FUNGSI LOAD DATA DARI LOCALSTORAGE
-function loadDataAndInit() {
+// FUNGSI LOAD DATA DARI DATABASE
+async function loadDataAndInit() {
     try {
-        const savedData = localStorage.getItem('sekolahDigitalData');
+        const response = await fetch('api.php');
         
-        if (savedData) {
-            data = JSON.parse(savedData);
-            console.log("Data berhasil dimuat dari LocalStorage:", data);
-        } else {
-            data = JSON.parse(JSON.stringify(defaultData));
-            saveData();
-            console.log("Data default berhasil dibuat");
+        if (!response.ok) {
+            throw new Error(`Gagal mengambil data. Status: ${response.status}`);
         }
+        
+        data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        console.log("Data dari database berhasil dimuat:", data);
 
         if (document.getElementById("kata-harian")) {
             setupHalamanAwal();
@@ -59,20 +30,7 @@ function loadDataAndInit() {
 
     } catch (error) {
         console.error('Terjadi kesalahan saat memuat data:', error);
-        alert('Gagal memuat data. Data akan direset.');
-        data = JSON.parse(JSON.stringify(defaultData));
-        saveData();
-    }
-}
-
-// FUNGSI SIMPAN DATA KE LOCALSTORAGE
-function saveData() {
-    try {
-        localStorage.setItem('sekolahDigitalData', JSON.stringify(data));
-        console.log("Data berhasil disimpan ke LocalStorage");
-    } catch (error) {
-        console.error('Gagal menyimpan data:', error);
-        alert('Gagal menyimpan data. Storage mungkin penuh.');
+        alert('Gagal terhubung ke server atau database. Pastikan XAMPP (Apache & MySQL) sudah berjalan dan file api.php ada.');
     }
 }
 
@@ -90,15 +48,7 @@ function togglePassword(inputId) {
 }
 
 function setupHalamanAwal() {
-    const quotes = [
-        "Minggu: Istirahat.", 
-        "Senin: Mulailah!", 
-        "Selasa: Terus bertumbuh.", 
-        "Rabu: Jangan takut gagal.", 
-        "Kamis: Optimis!", 
-        "Jumat: Selesaikan.", 
-        "Sabtu: Refleksi."
-    ];
+    const quotes = ["Minggu: Istirahat.", "Senin: Mulailah!", "Selasa: Terus bertumbuh.", "Rabu: Jangan takut gagal.", "Kamis: Optimis!", "Jumat: Selesaikan.", "Sabtu: Refleksi."];
     document.getElementById("kata-harian").textContent = quotes[new Date().getDay()];
     document.getElementById("tombol-buka").addEventListener("click", () => window.location.href = "main.html");
 }
@@ -218,7 +168,6 @@ function changePasswordFromPopup() {
     if (newP !== confirmP) return alert("Password baru tidak cocok!");
     if (oldP !== currentUser.password) return alert("Password lama salah!");
     currentUser.password = newP;
-    saveData();
     alert("Password berhasil diubah!");
     document.getElementById("old-pass-popup").value = "";
     document.getElementById("new-pass-popup").value = "";
@@ -274,13 +223,13 @@ function openAdminTab(evt, tabName) {
 }
 
 function renderGuruDashboard() {
-    return `<div class="dashboard-section" id="guru-absen"><h4>🗓️ Absensi & Jadwal</h4><p id="info-absen-guru">Mengecek jadwal...</p><button id="btn-mulai-ajar" onclick="mulaiAjar()" disabled>Mulai Ajar</button><div id="container-absen-kelas" style="margin-top: 1rem;"></div></div><div class="dashboard-section" id="guru-tugas"><h4>📤 Manajemen Tugas</h4><div class="form-container"><h5>Buat Tugas Baru</h5><select id="tugas-kelas">${data.kelas.map(k => `<option value="${k.id}">${k.nama}</option>`).join("")}</select><input type="text" id="tugas-mapel" placeholder="Mata Pelajaran"><input type="text" id="tugas-judul" placeholder="Judul Tugas"><textarea id="tugas-deskripsi" placeholder="Deskripsi tugas..."></textarea><input type="date" id="tugas-deadline"><button onclick="buatTugas()">Kirim Tugas</button></div><div id="submission-container"></div></div><div class="dashboard-section"><h4>📚 Unggah Materi</h4><select id="materi-kelas">${data.kelas.map(k => `<option value="${k.id}">${k.nama}</option>`).join("")}</select><input type="text" id="materi-judul" placeholder="Judul Materi"><textarea id="materi-deskripsi" placeholder="Deskripsi..."></textarea><button onclick="unggahMateri()">Unggah</button></div><div class="dashboard-section"><h4>📢 Buat Pengumuman</h4><input type="text" id="pengumuman-judul" placeholder="Judul"><textarea id="pengumuman-isi" placeholder="Isi..."></textarea><button onclick="buatPengumuman()">Kirim</button></div>`;
+    return `<div class="dashboard-section" id="guru-absen"><h4>🗓️ Absensi & Jadwal</h4><p id="info-absen-guru">Mengecek jadwal...</p><button id="btn-mulai-ajar" onclick="mulaiAjar()" disabled>Mulai Ajar</button><div id="container-absen-kelas" style="margin-top: 1rem;"></div></div><div class="dashboard-section" id="guru-tugas"><h4>📤 Manajemen Tugas</h4><div class="form-container"><h5>Buat Tugas Baru</h5><select id="tugas-kelas">${data.kelas.map(k => `<option value="${k.id}">${k.nama}</option>`).join("")}</select><input type="text" id="tugas-mapel" placeholder="Mata Pelajaran"><input type="text" id="tugas-judul" placeholder="Judul Tugas"><textarea id="tugas-deskripsi" placeholder="Deskripsi tugas..."></textarea><input type="date" id="tugas-deadline"><label>Upload File (Simulasi):</label><input type="file" id="tugas-file"><button onclick="buatTugas()">Kirim Tugas</button></div><div id="submission-container"></div></div><div class="dashboard-section"><h4>📚 Unggah Materi</h4><select id="materi-kelas">${data.kelas.map(k => `<option value="${k.id}">${k.nama}</option>`).join("")}</select><input type="text" id="materi-judul" placeholder="Judul Materi"><textarea id="materi-deskripsi" placeholder="Deskripsi..."></textarea><label>Upload File (Simulasi):</label><input type="file" id="materi-file"><button onclick="unggahMateri()">Unggah</button></div><div class="dashboard-section"><h4>📢 Buat Pengumuman</h4><input type="text" id="pengumuman-judul" placeholder="Judul"><textarea id="pengumuman-isi" placeholder="Isi..."></textarea><button onclick="buatPengumuman()">Kirim</button></div>`;
 }
 
 function renderSiswaDashboard() {
     const locked = absensiHariIniSelesai ? "" : "locked-feature";
     const warning = absensiHariIniSelesai ? "" : '<p style="color: var(--danger-color); font-weight: 600;">🔒 Lakukan absensi untuk membuka fitur lain.</p>';
-    return `<div class="dashboard-section" id="siswa-absen"><h4>✅ Absensi Siswa</h4><button id="btn-absen-masuk-siswa" onclick="absen('masuk')">📍 Masuk</button><button onclick="absen('izin')">📝 Izin</button><button onclick="absen('sakit')">🤒 Sakit</button></div><div class="dashboard-section"><h4>🗓️ Jadwal & Catatan PR</h4><div id="jadwal-siswa-container">Memuat jadwal...</div></div><div id="fitur-siswa-wrapper" class="${locked}">${warning}<div class="dashboard-section"><h4>📢 Pengumuman</h4><div id="pengumuman-container"></div></div><div class="dashboard-section"><h4>📚 Materi Pembelajaran</h4><div id="materi-container"></div></div><div class="dashboard-section"><h4>📚 Tugas Sekolah <span id="notif-tugas" class="notification-badge">0</span></h4><div id="daftar-tugas-container"></div></div></div>`;
+    return `<div class="dashboard-section" id="siswa-absen"><h4>✅ Absensi Siswa</h4><button id="btn-absen-masuk-siswa" onclick="absen('masuk')">📍 Masuk</button><button onclick="absen('izin')">📝 Izin</button><button onclick="absen('sakit')">🤒 Sakit (Wajib Foto)</button></div><div class="dashboard-section"><h4>🗓️ Jadwal & Catatan PR</h4><div id="jadwal-siswa-container">Memuat jadwal...</div></div><div id="fitur-siswa-wrapper" class="${locked}">${warning}<div class="dashboard-section"><h4>📢 Pengumuman</h4><div id="pengumuman-container"></div></div><div class="dashboard-section"><h4>📚 Materi Pembelajaran</h4><div id="materi-container"></div></div><div class="dashboard-section"><h4>📚 Tugas Sekolah <span id="notif-tugas" class="notification-badge">0</span></h4><div id="daftar-tugas-container"></div></div></div>`;
 }
 
 function renderSiswaFeatures() {
@@ -294,16 +243,12 @@ function renderSiswaFeatures() {
 function cekDanHapusCatatanLama() {
     const mingguSekarang = getNomorMinggu(new Date());
     data.catatanPR = data.catatanPR.filter(catatan => !(catatan.id_siswa === currentUser.id && catatan.mingguDibuat < mingguSekarang));
-    saveData();
 }
 
 function renderJadwalSiswa() {
     const container = document.getElementById('jadwal-siswa-container');
     const jadwalKelas = data.jadwalPelajaran[currentUser.id_kelas] || [];
-    if (jadwalKelas.length === 0) { 
-        container.innerHTML = '<p>Jadwal pelajaran belum diatur oleh admin.</p>'; 
-        return; 
-    }
+    if (jadwalKelas.length === 0) { container.innerHTML = '<p>Jadwal pelajaran belum diatur oleh admin.</p>'; return; }
     const hariSekolah = [1, 2, 3, 4, 5];
     const namaHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
     let html = '<div class="jadwal-grid">';
@@ -315,9 +260,7 @@ function renderJadwalSiswa() {
                 const catatanTersimpan = data.catatanPR.find(c => c.id_siswa === currentUser.id && c.id_jadwal === sesi.id);
                 html += `<div class="jadwal-sesi"><div class="sesi-info"><strong>${sesi.mataPelajaran}</strong><span>${sesi.jamMulai} - ${sesi.jamSelesai}</span></div><textarea class="catatan-pr" id="catatan-${sesi.id}" placeholder="Ketik catatan PR..." onblur="simpanCatatan(${sesi.id})">${catatanTersimpan ? catatanTersimpan.catatan : ''}</textarea></div>`;
             });
-        } else { 
-            html += '<p class="sesi-kosong">Tidak ada jadwal</p>'; 
-        }
+        } else { html += '<p class="sesi-kosong">Tidak ada jadwal</p>'; }
         html += `</div>`;
     });
     html += `</div>`;
@@ -328,16 +271,7 @@ function simpanCatatan(id_jadwal) {
     const textarea = document.getElementById(`catatan-${id_jadwal}`);
     const catatanTeks = textarea.value.trim();
     data.catatanPR = data.catatanPR.filter(c => !(c.id_siswa === currentUser.id && c.id_jadwal === id_jadwal));
-    if (catatanTeks) { 
-        data.catatanPR.push({ 
-            id: Date.now(),
-            id_siswa: currentUser.id, 
-            id_jadwal, 
-            catatan: catatanTeks, 
-            mingguDibuat: getNomorMinggu(new Date()) 
-        }); 
-    }
-    saveData();
+    if (catatanTeks) { data.catatanPR.push({ id_siswa: currentUser.id, id_jadwal, catatan: catatanTeks, mingguDibuat: getNomorMinggu(new Date()) }); }
     textarea.style.borderColor = 'var(--success-color)';
     setTimeout(() => { textarea.style.borderColor = 'var(--border-color)'; }, 1500);
 }
@@ -357,12 +291,17 @@ function absen(status) {
     }
 
     if (status === 'sakit') {
-        const fotoNama = prompt('Masukkan nama file foto (simulasi):');
-        if (fotoNama) {
-            prosesAbsensi(status, fotoNama);
-        } else {
-            alert("Foto bukti wajib untuk status sakit!");
-        }
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.onchange = (e) => {
+            if (e.target.files[0]) {
+                prosesAbsensi(status, e.target.files[0].name);
+            } else {
+                alert("Foto bukti wajib diupload untuk status sakit!");
+            }
+        };
+        fileInput.click();
     } else if (status === 'masuk') {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
@@ -388,25 +327,47 @@ function absen(status) {
     }
 }
 
-function prosesAbsensi(status, fotoNama = null) {
+async function prosesAbsensi(status, fotoNama = null) {
     const today = new Date().toISOString().split('T')[0];
     const waktu = new Date().toTimeString().split(' ')[0];
     
-    data.absensi.push({
-        id: Date.now(),
-        id_siswa: currentUser.id,
-        nama_siswa: currentUser.nama,
-        id_kelas: currentUser.id_kelas,
-        status: status,
-        tanggal: today,
-        waktu: waktu,
-        keterangan: fotoNama || ''
-    });
-    
-    saveData();
-    absensiHariIniSelesai = true;
-    alert(`Absensi ${status} berhasil dicatat!`);
-    showDashboard();
+    try {
+        const formData = new FormData();
+        formData.append('id_siswa', currentUser.id);
+        formData.append('tanggal', today);
+        formData.append('status', status);
+        formData.append('keterangan', fotoNama || '');
+        
+        const response = await fetch('save_absensi.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            data.absensi.push({
+                id: result.id || Date.now(),
+                id_siswa: currentUser.id,
+                nama_siswa: currentUser.nama,
+                id_kelas: currentUser.id_kelas,
+                status: status,
+                tanggal: today,
+                waktu: waktu,
+                foto: fotoNama
+            });
+            
+            absensiHariIniSelesai = true;
+            alert(`Absensi ${status} berhasil dicatat!`);
+            showDashboard();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menyimpan absensi');
+    }
 }
 
 function hitungJarak(lat1, lon1, lat2, lon2) {
@@ -422,20 +383,11 @@ function hitungJarak(lat1, lon1, lat2, lon2) {
 
 function createNotification(id_user, role, message) {
     if (currentUser && currentUser.id === id_user && currentRole === role) return;
-    data.notifikasi.push({ 
-        id: Date.now(), 
-        id_user, 
-        role, 
-        message, 
-        read: false, 
-        timestamp: new Date().toISOString() 
-    });
-    saveData();
+    data.notifikasi.push({ id: Date.now(), id_user, role, message, read: false, timestamp: new Date() });
 }
 
 function renderNotificationBell() {
     const notifBadge = document.getElementById("notif-badge");
-    if (!notifBadge) return;
     const unreadNotifs = data.notifikasi.filter(n => (n.id_user === currentUser.id || n.id_user === "semua") && n.role === currentRole && !n.read);
     if (unreadNotifs.length > 0) {
         notifBadge.textContent = unreadNotifs.length;
@@ -454,10 +406,7 @@ function toggleNotifDropdown() {
 function renderNotifList() {
     const dropdown = document.getElementById("notification-dropdown");
     const userNotifs = data.notifikasi.filter(n => (n.id_user === currentUser.id || n.id_user === "semua") && n.role === currentRole);
-    if (userNotifs.length === 0) { 
-        dropdown.innerHTML = '<div class="notif-item">Tidak ada notifikasi.</div>'; 
-        return; 
-    }
+    if (userNotifs.length === 0) { dropdown.innerHTML = '<div class="notif-item">Tidak ada notifikasi.</div>'; return; }
     let html = "";
     [...userNotifs].reverse().forEach(n => {
         html += `<div class="notif-item ${n.read ? 'read' : ''}" onclick="markNotifAsRead(${n.id})"><p>${n.message}</p><span class="notif-time">${new Date(n.timestamp).toLocaleString("id-ID")}</span></div>`;
@@ -468,7 +417,6 @@ function renderNotifList() {
 function markNotifAsRead(notifId) {
     const notif = data.notifikasi.find(n => n.id === notifId);
     if (notif) notif.read = true;
-    saveData();
     renderNotificationBell();
     renderNotifList();
 }
@@ -486,24 +434,46 @@ function renderPengumumanSiswa() {
     container.innerHTML = html;
 }
 
-function buatPengumuman() {
+async function buatPengumuman() {
     const judul = document.getElementById("pengumuman-judul").value;
     const isi = document.getElementById("pengumuman-isi").value;
     if (!judul || !isi) return alert("Judul dan isi harus diisi!");
     
-    data.pengumuman.push({
-        id: Date.now(),
-        judul,
-        isi,
-        nama_guru: currentUser.nama,
-        tanggal: new Date().toISOString().split('T')[0]
-    });
-    
-    saveData();
-    createNotification("semua", "siswa", `Pengumuman baru: ${judul}`);
-    document.getElementById("pengumuman-judul").value = "";
-    document.getElementById("pengumuman-isi").value = "";
-    alert("Pengumuman berhasil dibuat!");
+    try {
+        const formData = new FormData();
+        formData.append('judul', judul);
+        formData.append('isi', isi);
+        formData.append('nama_guru', currentUser.nama);
+        
+        const response = await fetch('save_pengumuman.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            data.pengumuman.push({
+                id: result.id,
+                judul,
+                isi,
+                nama_guru: currentUser.nama,
+                tanggal: new Date().toISOString().split('T')[0]
+            });
+            
+            createNotification("semua", "siswa", `Pengumuman baru: ${judul}`);
+            document.getElementById("pengumuman-judul").value = "";
+            document.getElementById("pengumuman-isi").value = "";
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menyimpan pengumuman');
+    }
 }
 
 function renderMateriSiswa() {
@@ -520,30 +490,56 @@ function renderMateriSiswa() {
     container.innerHTML = html;
 }
 
-function unggahMateri() {
+async function unggahMateri() {
     const id_kelas = parseInt(document.getElementById("materi-kelas").value);
     const judul = document.getElementById("materi-judul").value;
     const deskripsi = document.getElementById("materi-deskripsi").value;
+    const file = document.getElementById("materi-file").files[0];
     
     if (!judul || !deskripsi) {
         return alert("Judul dan deskripsi harus diisi!");
     }
     
-    data.materi.push({
-        id: Date.now(),
-        judul: judul,
-        deskripsi: deskripsi,
-        id_kelas: id_kelas,
-        id_guru: currentUser.id,
-        nama_guru: currentUser.nama,
-        file: 'file_simulasi.pdf',
-        tanggal: new Date().toISOString().split('T')[0]
-    });
-    
-    saveData();
-    document.getElementById("materi-judul").value = "";
-    document.getElementById("materi-deskripsi").value = "";
-    alert("Materi berhasil diunggah!");
+    try {
+        const formData = new FormData();
+        formData.append('judul', judul);
+        formData.append('deskripsi', deskripsi);
+        formData.append('id_kelas', id_kelas);
+        formData.append('id_guru', currentUser.id);
+        formData.append('file_url', file ? file.name : '');
+        
+        const response = await fetch('save_materi.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            data.materi.push({
+                id: result.id,
+                judul: judul,
+                deskripsi: deskripsi,
+                id_kelas: id_kelas,
+                id_guru: currentUser.id,
+                nama_guru: currentUser.nama,
+                file: file ? file.name : '',
+                tanggal: new Date().toISOString().split('T')[0]
+            });
+            
+            document.getElementById("materi-judul").value = "";
+            document.getElementById("materi-deskripsi").value = "";
+            document.getElementById("materi-file").value = "";
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat meng-upload materi');
+    }
 }
 
 function renderDaftarTugas() {
@@ -558,13 +554,13 @@ function renderDaftarTugas() {
     let html = "";
     tugasSiswa.forEach(t => {
         const submission = t.submissions ? t.submissions.find(s => s.id_siswa === currentUser.id) : null;
-        const submissionHTML = submission ? `<div class="submission-status"><p style="color:green;"><strong>✔ Anda sudah mengumpulkan.</strong></p>${submission.nilai !== null ? `<p class="grade-display"><strong>Nilai: ${submission.nilai}</strong></p><p class="feedback-display"><em>Feedback: ${submission.feedback}</em></p>` : `<p>Menunggu penilaian...</p>`}</div>` : `<button onclick="submitTugas(${t.id})">Kirim Tugas</button>`;
+        const submissionHTML = submission ? `<div class="submission-status"><p style="color:green;"><strong>✓ Anda sudah mengumpulkan.</strong></p>${submission.nilai !== null ? `<p class="grade-display"><strong>Nilai: ${submission.nilai}</strong></p><p class="feedback-display"><em>Feedback: ${submission.feedback}</em></p>` : `<p>Menunggu penilaian...</p>`}</div>` : `<label>Kirim Jawaban:</label><input type="file" id="submit-file-${t.id}"><button onclick="submitTugas(${t.id})">Kirim</button>`;
         html += `<div class="task-card"><div class="task-header"><span><strong>${t.judul}</strong> - ${t.nama_guru}</span><span class="task-deadline">Deadline: ${t.deadline}</span></div><p>${t.deskripsi}</p><p><em>Mata Pelajaran: ${t.mapel || 'Umum'}</em></p>${submissionHTML}${renderDiskusi(t.id)}</div>`;
     });
     container.innerHTML = html;
 }
 
-function buatTugas() {
+async function buatTugas() {
     const id_kelas = parseInt(document.getElementById("tugas-kelas").value);
     const mapel = document.getElementById("tugas-mapel").value;
     const judul = document.getElementById("tugas-judul").value;
@@ -575,45 +571,68 @@ function buatTugas() {
         return alert("Semua field harus diisi!");
     }
     
-    data.tugas.push({
-        id: Date.now(),
-        judul: judul,
-        deskripsi: deskripsi,
-        mapel: mapel,
-        id_kelas: id_kelas,
-        deadline: deadline,
-        id_guru: currentUser.id,
-        nama_guru: currentUser.nama,
-        created_at: new Date().toISOString().split('T')[0],
-        submissions: []
-    });
-    
-    saveData();
-    document.getElementById("tugas-mapel").value = "";
-    document.getElementById("tugas-judul").value = "";
-    document.getElementById("tugas-deskripsi").value = "";
-    document.getElementById("tugas-deadline").value = "";
-    
-    alert("Tugas berhasil dibuat!");
-    renderTugasSubmissions();
+    try {
+        const formData = new FormData();
+        formData.append('judul', judul);
+        formData.append('deskripsi', deskripsi);
+        formData.append('mapel', mapel);
+        formData.append('id_kelas', id_kelas);
+        formData.append('deadline', deadline);
+        formData.append('id_guru', currentUser.id);
+        
+        const response = await fetch('save_tugas.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            data.tugas.push({
+                id: result.id,
+                judul: judul,
+                deskripsi: deskripsi,
+                mapel: mapel,
+                id_kelas: id_kelas,
+                deadline: deadline,
+                id_guru: currentUser.id,
+                nama_guru: currentUser.nama,
+                file: '',
+                submissions: []
+            });
+            
+            document.getElementById("tugas-mapel").value = "";
+            document.getElementById("tugas-judul").value = "";
+            document.getElementById("tugas-deskripsi").value = "";
+            document.getElementById("tugas-deadline").value = "";
+            
+            renderTugasSubmissions();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menyimpan tugas');
+    }
 }
 
 function submitTugas(id_tugas) {
-    const fileName = prompt('Masukkan nama file yang akan dikumpulkan:');
-    if (!fileName) return alert("Nama file harus diisi!");
-    
+    const file = document.getElementById(`submit-file-${id_tugas}`).files[0];
+    if (!file) return alert("Pilih file!");
     const tugas = data.tugas.find(t => t.id === id_tugas);
     if (tugas) {
         if (!tugas.submissions) tugas.submissions = [];
         tugas.submissions.push({ 
             id_siswa: currentUser.id, 
             nama_siswa: currentUser.nama, 
-            file: fileName, 
+            file: file.name, 
             timestamp: new Date().toLocaleString("id-ID"), 
             nilai: null, 
             feedback: "" 
         });
-        saveData();
         createNotification(tugas.id_guru, "guru", `Siswa '${currentUser.nama}' mengumpulkan tugas '${tugas.judul}'.`);
         alert(`Jawaban berhasil dikirim!`);
         renderDaftarTugas();
@@ -634,8 +653,8 @@ function renderTugasSubmissions() {
         if (t.submissions && t.submissions.length > 0) {
             html += "<ul class='submission-list'>";
             t.submissions.forEach(sub => {
-                const submissionDetailHTML = `<strong>${sub.nama_siswa}</strong> mengumpulkan file: <em>${sub.file}</em><div class="grading-container">${sub.nilai !== null ? `<p class="grade-display"><strong>Nilai: ${sub.nilai}</strong></p><p class="feedback-display"><em>Feedback: ${sub.feedback}</em></p>` : `<input type="number" id="nilai-${t.id}-${sub.id_siswa}" placeholder="Nilai (0-100)" min="0" max="100"><input type="text" id="feedback-${t.id}-${sub.id_siswa}" placeholder="Umpan Balik"><button class="small-btn" onclick="simpanNilai(${t.id}, ${sub.id_siswa})">Simpan</button>`}</div>`;
-                html += `<li style="margin-bottom: 1rem; padding: 1rem; background: var(--light-bg); border-radius: 8px;">${submissionDetailHTML}</li>`;
+                const submissionDetailHTML = `<strong>${sub.nama_siswa}</strong> mengumpulkan file: <em>${sub.file}</em><div class="grading-container">${sub.nilai !== null ? `<p class="grade-display"><strong>Nilai: ${sub.nilai}</strong></p><p class="feedback-display"><em>Feedback: ${sub.feedback}</em></p>` : `<input type="number" id="nilai-${t.id}-${sub.id_siswa}" placeholder="Nilai (0-100)"><input type="text" id="feedback-${t.id}-${sub.id_siswa}" placeholder="Umpan Balik"><button class="small-btn" onclick="simpanNilai(${t.id}, ${sub.id_siswa})">Simpan</button>`}</div>`;
+                html += `<li>${submissionDetailHTML}</li>`;
             });
             html += "</ul>";
         } else { 
@@ -654,7 +673,6 @@ function simpanNilai(id_tugas, id_siswa) {
     const submission = tugas.submissions.find(s => s.id_siswa === id_siswa);
     submission.nilai = parseInt(nilai);
     submission.feedback = feedback || "Tidak ada feedback.";
-    saveData();
     createNotification(id_siswa, "siswa", `Tugas '${tugas.judul}' Anda telah dinilai.`);
     alert("Nilai berhasil disimpan!");
     renderTugasSubmissions();
@@ -682,13 +700,12 @@ function kirimDiskusi(id_tugas) {
     data.diskusi.push({
         id: Date.now(),
         id_tugas,
-        nama: currentUser.nama || currentUser.username,
+        nama: currentUser.nama,
         role: currentRole,
         pesan,
         timestamp: new Date().toLocaleString("id-ID")
     });
     
-    saveData();
     textarea.value = "";
     
     if (currentRole === 'siswa') {
@@ -702,13 +719,11 @@ function cekJadwalMengajar() {
     const infoText = document.getElementById("info-absen-guru");
     const btnMulai = document.getElementById("btn-mulai-ajar");
     
-    if (!infoText || !btnMulai) return;
-    
     const now = new Date();
     const hariIni = now.getDay();
     const jamSekarang = now.getHours();
     
-    const jadwalHariIni = currentUser.jadwal ? currentUser.jadwal.filter(j => j.hari === hariIni) : [];
+    const jadwalHariIni = currentUser.jadwal.filter(j => j.hari === hariIni);
     
     if (jadwalHariIni.length === 0) {
         infoText.textContent = "Tidak ada jadwal mengajar hari ini.";
@@ -817,7 +832,7 @@ function renderAdminAbsensi() {
         [...data.absensi].reverse().forEach(a => {
             const siswa = data.users.siswas.find(s => s.id == a.id_siswa);
             const namaKelas = siswa ? data.kelas.find(k => k.id === siswa.id_kelas)?.nama || "-" : "-";
-            const namaSiswa = a.nama_siswa || (siswa ? siswa.nama : "Unknown");
+            const namaSiswa = siswa ? siswa.nama : "Unknown";
             html += `<tr><td>${a.tanggal}</td><td>${namaSiswa}</td><td>${namaKelas}</td><td>${a.status}</td><td>${a.waktu || '-'}</td></tr>`;
         });
         html += "</table>";
@@ -850,15 +865,37 @@ function renderAdminManajemen() {
         </div>
         <div class="dashboard-section">
             <h4>👨‍🏫 Manajemen Guru</h4>
+            <div class="form-container">
+                <h5>Tambah Guru Baru</h5>
+                <input type="text" id="new-guru-nama" placeholder="Nama Guru">
+                <input type="email" id="new-guru-email" placeholder="Email (opsional)">
+                <input type="password" id="new-guru-pass" placeholder="Password">
+                <button onclick="tambahGuru()">Tambah Guru</button>
+            </div>
             <table>
-                <tr><th>ID</th><th>Nama</th><th>Email</th></tr>
-                ${data.users.gurus.map(g => `<tr><td>${g.id}</td><td>${g.nama}</td><td>${g.email}</td></tr>`).join("")}
+                <tr><th>ID</th><th>Nama</th><th>Email</th><th>Aksi</th></tr>
+                ${data.users.gurus.map(g => `<tr><td>${g.id}</td><td>${g.nama}</td><td>${g.email || '-'}</td><td><button class="small-btn delete" onclick="hapusGuru(${g.id})">Hapus</button></td></tr>`).join("")}
+            </table>
+        </div>
+        <div class="dashboard-section">
+            <h4>🏫 Manajemen Kelas</h4>
+            <div class="form-container">
+                <h5>Tambah Kelas Baru</h5>
+                <input type="text" id="new-kelas-nama" placeholder="Nama Kelas (contoh: X-A)">
+                <input type="number" id="new-kelas-lat" placeholder="Latitude" value="-7.257472" step="any">
+                <input type="number" id="new-kelas-lng" placeholder="Longitude" value="112.752090" step="any">
+                <button onclick="ambilLokasiGPS()" style="background: var(--secondary-color);">📍 Ambil Lokasi Saat Ini</button>
+                <button onclick="tambahKelas()">Tambah Kelas</button>
+            </div>
+            <table>
+                <tr><th>ID</th><th>Nama</th><th>Lokasi (GPS)</th><th>Aksi</th></tr>
+                ${data.kelas.map(k => `<tr><td>${k.id}</td><td>${k.nama}</td><td>${k.lokasi.latitude.toFixed(6)}, ${k.lokasi.longitude.toFixed(6)}</td><td><button class="small-btn delete" onclick="hapusKelas(${k.id})">Hapus</button></td></tr>`).join("")}
             </table>
         </div>
     `;
 }
 
-function tambahSiswa() {
+async function tambahSiswa() {
     const nama = document.getElementById("new-siswa-nama").value;
     const nis = document.getElementById("new-siswa-nis").value;
     const id_kelas = parseInt(document.getElementById("new-siswa-kelas").value);
@@ -866,31 +903,239 @@ function tambahSiswa() {
     
     if (!nama || !nis || !password) return alert("Semua field harus diisi!");
     
-    if (data.users.siswas.some(s => s.nis === nis)) {
-        return alert("NIS sudah terdaftar!");
+    try {
+        const formData = new FormData();
+        formData.append('nama', nama);
+        formData.append('nis', nis);
+        formData.append('id_kelas', id_kelas);
+        formData.append('password', password);
+        formData.append('email', '');
+        
+        const response = await fetch('save_siswa.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            data.users.siswas.push({
+                id: result.id,
+                nama: nama,
+                nis: nis,
+                id_kelas: id_kelas,
+                password: password,
+                email: ''
+            });
+            
+            renderAdminManajemen();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menambah siswa');
     }
-    
-    data.users.siswas.push({
-        id: Date.now(),
-        nama: nama,
-        nis: nis,
-        id_kelas: id_kelas,
-        password: password,
-        email: ''
-    });
-    
-    saveData();
-    alert("Siswa berhasil ditambahkan!");
-    renderAdminManajemen();
 }
 
-function hapusSiswa(id) {
+async function hapusSiswa(id) {
     if (!confirm("Yakin ingin menghapus siswa ini?")) return;
     
-    data.users.siswas = data.users.siswas.filter(s => s.id !== id);
-    saveData();
-    alert("Siswa berhasil dihapus!");
-    renderAdminManajemen();
+    try {
+        const formData = new FormData();
+        formData.append('table', 'siswas');
+        formData.append('id', id);
+        
+        const response = await fetch('delete_data.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            data.users.siswas = data.users.siswas.filter(s => s.id !== id);
+            renderAdminManajemen();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menghapus siswa');
+    }
+}
+
+async function tambahGuru() {
+    const nama = document.getElementById("new-guru-nama").value;
+    const email = document.getElementById("new-guru-email").value;
+    const password = document.getElementById("new-guru-pass").value;
+    
+    if (!nama || !password) return alert("Nama dan password harus diisi!");
+    
+    try {
+        const formData = new FormData();
+        formData.append('nama', nama);
+        formData.append('email', email);
+        formData.append('password', password);
+        
+        const response = await fetch('save_guru.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            data.users.gurus.push({
+                id: result.id,
+                nama: nama,
+                email: email,
+                password: password,
+                jadwal: []
+            });
+            
+            document.getElementById("new-guru-nama").value = "";
+            document.getElementById("new-guru-email").value = "";
+            document.getElementById("new-guru-pass").value = "";
+            renderAdminManajemen();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menambah guru');
+    }
+}
+
+async function hapusGuru(id) {
+    if (!confirm("Yakin ingin menghapus guru ini?")) return;
+    
+    try {
+        const formData = new FormData();
+        formData.append('table', 'gurus');
+        formData.append('id', id);
+        
+        const response = await fetch('delete_data.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            data.users.gurus = data.users.gurus.filter(g => g.id !== id);
+            renderAdminManajemen();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menghapus guru');
+    }
+}
+
+function ambilLokasiGPS() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                document.getElementById("new-kelas-lat").value = position.coords.latitude;
+                document.getElementById("new-kelas-lng").value = position.coords.longitude;
+                alert("Lokasi berhasil diambil!");
+            },
+            () => {
+                alert("Tidak dapat mengakses lokasi GPS.");
+            }
+        );
+    } else {
+        alert("Browser tidak mendukung geolokasi.");
+    }
+}
+
+async function tambahKelas() {
+    const nama = document.getElementById("new-kelas-nama").value;
+    const lat = parseFloat(document.getElementById("new-kelas-lat").value);
+    const lng = parseFloat(document.getElementById("new-kelas-lng").value);
+    
+    if (!nama || isNaN(lat) || isNaN(lng)) {
+        return alert("Semua field harus diisi dengan benar!");
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('nama', nama);
+        formData.append('latitude', lat);
+        formData.append('longitude', lng);
+        
+        const response = await fetch('save_kelas.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            data.kelas.push({
+                id: result.id,
+                nama: nama,
+                lokasi: {
+                    latitude: lat,
+                    longitude: lng
+                }
+            });
+            
+            document.getElementById("new-kelas-nama").value = "";
+            document.getElementById("new-kelas-lat").value = "-7.257472";
+            document.getElementById("new-kelas-lng").value = "112.752090";
+            renderAdminManajemen();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menambah kelas');
+    }
+}
+
+async function hapusKelas(id) {
+    if (!confirm("Yakin ingin menghapus kelas ini? Semua siswa di kelas ini juga akan terhapus!")) return;
+    
+    try {
+        const formData = new FormData();
+        formData.append('table', 'kelas');
+        formData.append('id', id);
+        
+        const response = await fetch('delete_data.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            data.kelas = data.kelas.filter(k => k.id !== id);
+            renderAdminManajemen();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menghapus kelas');
+    }
 }
 
 function renderAdminJadwal() {
@@ -927,15 +1172,13 @@ function renderAdminJadwal() {
     container.innerHTML = html;
 }
 
-function tambahJadwalGuru(guruId) {
+async function tambahJadwalGuru(guruId) {
     const id_kelas = parseInt(document.getElementById(`jadwal-kelas-${guruId}`).value);
     const hari = parseInt(document.getElementById(`jadwal-hari-${guruId}`).value);
     const jam = parseInt(document.getElementById(`jadwal-jam-${guruId}`).value);
     
     const guru = data.users.gurus.find(g => g.id === guruId);
     if (!guru) return;
-
-    if (!guru.jadwal) guru.jadwal = [];
 
     if (guru.jadwal.some(j => j.id_kelas === id_kelas && j.hari === hari && j.jam === jam)) {
         return alert("Jadwal ini sudah ada.");
@@ -944,15 +1187,34 @@ function tambahJadwalGuru(guruId) {
     const kelas = data.kelas.find(k => k.id === id_kelas);
     guru.jadwal.push({ id_kelas, hari, jam, nama_kelas: kelas.nama });
     
-    saveData();
-    alert("Jadwal berhasil ditambahkan!");
-    renderAdminJadwal();
+    try {
+        const formData = new FormData();
+        formData.append('id_guru', guruId);
+        formData.append('jadwal', JSON.stringify(guru.jadwal));
+        
+        const response = await fetch('update_jadwal_guru.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            renderAdminJadwal();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menyimpan jadwal');
+    }
 }
 
 function hapusJadwalGuru(id_guru, index) {
     const guru = data.users.gurus.find(g => g.id === id_guru);
     guru.jadwal.splice(index, 1);
-    saveData();
     alert("Jadwal berhasil dihapus!");
     renderAdminJadwal();
 }
@@ -969,7 +1231,7 @@ function renderAdminManajemenJadwal() {
             const namaHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             html += '<table><tr><th>Hari</th><th>Jam</th><th>Mata Pelajaran</th><th>Aksi</th></tr>';
             jadwal.forEach((j, index) => {
-                html += `<tr><td>${namaHari[j.hari]}</td><td>${j.jamMulai} - ${j.jamSelesai}</td><td>${j.mataPelajaran}</td><td><button class="small-btn delete" onclick="hapusJadwalPelajaran(${kelas.id}, ${index})">Hapus</button></td></tr>`;
+                html += `<tr><td>${namaHari[j.hari]}</td><td>${j.jamMulai} - ${j.jamSelesai}</td><td>${j.mataPelajaran}</td><td><button class="small-btn delete" onclick="hapusJadwalPelajaran(${kelas.id}, ${j.id})">Hapus</button></td></tr>`;
             });
             html += '</table>';
         } else {
@@ -997,7 +1259,7 @@ function renderAdminManajemenJadwal() {
     container.innerHTML = html;
 }
 
-function tambahJadwalPelajaran(id_kelas) {
+async function tambahJadwalPelajaran(id_kelas) {
     const hari = parseInt(document.getElementById(`jp-hari-${id_kelas}`).value);
     const mataPelajaran = document.getElementById(`jp-mapel-${id_kelas}`).value;
     const jamMulai = document.getElementById(`jp-mulai-${id_kelas}`).value;
@@ -1005,33 +1267,78 @@ function tambahJadwalPelajaran(id_kelas) {
     
     if (!mataPelajaran || !jamMulai || !jamSelesai) return alert("Semua field harus diisi!");
     
-    if (!data.jadwalPelajaran[id_kelas]) {
-        data.jadwalPelajaran[id_kelas] = [];
+    try {
+        const formData = new FormData();
+        formData.append('id_kelas', id_kelas);
+        formData.append('hari', hari);
+        formData.append('jam_mulai', jamMulai);
+        formData.append('jam_selesai', jamSelesai);
+        formData.append('mata_pelajaran', mataPelajaran);
+        
+        const response = await fetch('save_jadwal_pelajaran.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            if (!data.jadwalPelajaran[id_kelas]) {
+                data.jadwalPelajaran[id_kelas] = [];
+            }
+            
+            data.jadwalPelajaran[id_kelas].push({
+                id: result.id,
+                hari: hari,
+                jamMulai: jamMulai,
+                jamSelesai: jamSelesai,
+                mataPelajaran: mataPelajaran
+            });
+            
+            renderAdminManajemenJadwal();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menyimpan jadwal pelajaran');
     }
-    
-    data.jadwalPelajaran[id_kelas].push({
-        id: Date.now(),
-        hari: hari,
-        jamMulai: jamMulai,
-        jamSelesai: jamSelesai,
-        mataPelajaran: mataPelajaran
-    });
-    
-    saveData();
-    alert("Jadwal pelajaran berhasil ditambahkan!");
-    renderAdminManajemenJadwal();
 }
 
-function hapusJadwalPelajaran(id_kelas, index) {
+async function hapusJadwalPelajaran(id_kelas, id_jadwal) {
     if (!confirm("Yakin ingin menghapus jadwal ini?")) return;
     
-    if (data.jadwalPelajaran[id_kelas]) {
-        data.jadwalPelajaran[id_kelas].splice(index, 1);
+    try {
+        const formData = new FormData();
+        formData.append('table', 'jadwal_pelajaran');
+        formData.append('id', id_jadwal);
+        
+        const response = await fetch('delete_data.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            if (data.jadwalPelajaran[id_kelas]) {
+                data.jadwalPelajaran[id_kelas] = data.jadwalPelajaran[id_kelas].filter(j => j.id !== id_jadwal);
+            }
+            
+            renderAdminManajemenJadwal();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menghapus jadwal');
     }
-    
-    saveData();
-    alert("Jadwal berhasil dihapus!");
-    renderAdminManajemenJadwal();
 }
 
 function renderAdminPengumuman() {
@@ -1050,26 +1357,48 @@ function renderAdminPengumuman() {
     renderAdminPengumumanList();
 }
 
-function buatPengumumanAdmin() {
+async function buatPengumumanAdmin() {
     const judul = document.getElementById("admin-pengumuman-judul").value;
     const isi = document.getElementById("admin-pengumuman-isi").value;
     
     if (!judul || !isi) return alert("Judul dan isi harus diisi!");
     
-    data.pengumuman.push({
-        id: Date.now(),
-        judul: judul,
-        isi: isi,
-        nama_guru: "Admin",
-        tanggal: new Date().toISOString().split('T')[0]
-    });
-    
-    saveData();
-    document.getElementById("admin-pengumuman-judul").value = "";
-    document.getElementById("admin-pengumuman-isi").value = "";
-    
-    alert("Pengumuman berhasil dibuat!");
-    renderAdminPengumumanList();
+    try {
+        const formData = new FormData();
+        formData.append('judul', judul);
+        formData.append('isi', isi);
+        formData.append('nama_guru', 'Admin');
+        
+        const response = await fetch('save_pengumuman.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            
+            data.pengumuman.push({
+                id: result.id,
+                judul: judul,
+                isi: isi,
+                nama_guru: "Admin",
+                tanggal: new Date().toISOString().split('T')[0]
+            });
+            
+            document.getElementById("admin-pengumuman-judul").value = "";
+            document.getElementById("admin-pengumuman-isi").value = "";
+            
+            renderAdminPengumumanList();
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat menyimpan pengumuman');
+    }
 }
 
 function renderAdminPengumumanList() {
@@ -1124,6 +1453,5 @@ async function hapusPengumuman(id) {
     }
 }
 
-// INISIALISASI APLIKASI
-
+// ========== INISIALISASI APLIKASI ==========
 document.addEventListener('DOMContentLoaded', loadDataAndInit);
